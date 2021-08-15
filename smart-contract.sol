@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicensed
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.0 <=0.8.6;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -427,7 +427,7 @@ abstract contract Ownable is Context {
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function renounceOwnership() public virtual onlyOwner {
+    function renounceOwnership() external virtual onlyOwner {
         _setOwner(address(0));
     }
 
@@ -435,7 +435,7 @@ abstract contract Ownable is Context {
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
+    function transferOwnership(address newOwner) external virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         _setOwner(newOwner);
     }
@@ -454,22 +454,22 @@ contract AntexToken is Context, IERC20, Ownable, ReentrancyGuard {
     string public constant name = "ANTEX";
     uint256 public constant decimals = 8;
 
-    mapping(address => uint) balances;
-    mapping(address => mapping(address => uint)) allowed;
-    address public deadWallet = address(0x000000000000000000000000000000000000dEaD);
+    mapping(address => uint) public balances;
+    mapping(address => mapping(address => uint)) public allowed;
+    address public constant deadWallet = address(0x000000000000000000000000000000000000dEaD);
     mapping(address => bool) public isBlackListed;
     uint256 public _totalSupply = 100 * (10 ** 9) * (10 ** decimals);
 
-    event SeizeBlackFunds(address _blackListedUser, uint256 _balance);
-    event AddedBlackList(address _user);
-    event RemovedBlackList(address _user);
-    event BurnSupply(address _user, uint256 _amount);
+    event SeizeBlackFunds(address indexed _blackListedUser, uint256 _balance);
+    event AddedBlackList(address indexed _user);
+    event RemovedBlackList(address indexed _user);
+    event BurnSupply(address indexed _user, uint256 _amount);
 
     constructor() {
         balances[msg.sender] = _totalSupply;
         emit Transfer(address(0), msg.sender, _totalSupply);
     }
-    function totalSupply() public view override returns (uint256) {
+    function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
 
@@ -477,40 +477,43 @@ contract AntexToken is Context, IERC20, Ownable, ReentrancyGuard {
         return balances[tokenOwner];
     }
 
-    function transfer(address to, uint256 tokens) public override returns (bool success) {
-        require(!isBlackListed[msg.sender], "Address is blacklisted");
+    function transfer(address to, uint256 tokens) external override returns (bool success) {
+        require(!isBlackListed[msg.sender], "ADDRESS IS BLACKLISTED");
+        require(to != address(0), "RECEIVE ADDRESS IS A ZERO ADDRESS");
         balances[msg.sender] = balances[msg.sender].sub(tokens);
         balances[to] = balances[to].add(tokens);
         emit Transfer(msg.sender, to, tokens);
         return true;
     }
 
-    function batchTransfer(address[] memory _receivers, uint256[] memory _amounts) public nonReentrant returns (bool) {
+    function batchTransfer(address[] memory _receivers, uint256[] memory _amounts) external nonReentrant {
+        require(!isBlackListed[msg.sender], "ADDRESS IS BLACKLISTED");
         uint256 cnt = _receivers.length;
         require(cnt > 0 && cnt <= 100);
         require(cnt == _amounts.length);
         cnt = (uint8)(cnt);
         uint256 totalAmount = 0;
         for (uint8 i = 0; i < cnt; i++) {
+            require(_receivers[i] != address(0), "RECEIVE ADDRESS IS A ZERO ADDRESS");
             totalAmount = totalAmount.add(_amounts[i]);
         }
-        require(totalAmount <= balances[msg.sender], "Balance is not enough");
+        require(totalAmount <= balances[msg.sender], "BALANCE IS NOT ENOUGH");
         balances[msg.sender] = balances[msg.sender].sub(totalAmount);
         for (uint256 i = 0; i < cnt; i++) {
             balances[_receivers[i]] = balances[_receivers[i]].add(_amounts[i]);
             emit Transfer(msg.sender, _receivers[i], _amounts[i]);
         }
-        return true;
     }
 
-    function approve(address spender, uint256 tokens) public override returns (bool success) {
+    function approve(address spender, uint256 tokens) external override returns (bool success) {
         allowed[msg.sender][spender] = tokens;
         emit Approval(msg.sender, spender, tokens);
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 tokens) public override returns (bool success) {
-        require(!isBlackListed[from], "Address is blacklisted");
+    function transferFrom(address from, address to, uint256 tokens) external override returns (bool success) {
+        require(!isBlackListed[from], "ADDRESS IS BLACKLISTED");
+        require(to != address(0), "RECEIVE ADDRESS IS A ZERO ADDRESS");
         balances[from] = balances[from].sub(tokens);
         allowed[from][msg.sender] = allowed[from][msg.sender].sub(tokens);
         balances[to] = balances[to].add(tokens);
@@ -518,23 +521,23 @@ contract AntexToken is Context, IERC20, Ownable, ReentrancyGuard {
         return true;
     }
 
-    function allowance(address tokenOwner, address spender) public override view returns (uint256 remaining) {
+    function allowance(address tokenOwner, address spender) external override view returns (uint256 remaining) {
         return allowed[tokenOwner][spender];
     }
 
-    function transferAnyERC20Token(address tokenAddress, uint256 tokens) public onlyOwner returns (bool success) {
+    function transferAnyERC20Token(address tokenAddress, uint256 tokens) external onlyOwner returns (bool success) {
         return IERC20(tokenAddress).transfer(owner(), tokens);
     }
 
-    function burnDead(uint256 _value) public nonReentrant {
-        require(balances[msg.sender] >= _value, "Balance is not enough");
+    function burnDead(uint256 _value) external nonReentrant {
+        require(balances[msg.sender] >= _value, "BALANCE IS NOT ENOUGH");
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[deadWallet] = balances[deadWallet].add(_value);
         emit Transfer(msg.sender, deadWallet, _value);
     }
 
-    function burnSupply(uint256 _value) public nonReentrant {
-        require(balances[msg.sender] >= _value, "Balance is not enough");
+    function burnSupply(uint256 _value) external nonReentrant {
+        require(balances[msg.sender] >= _value, "BALANCE IS NOT ENOUGH");
         balances[msg.sender] = balances[msg.sender].sub(_value);
         _totalSupply -= _value;
         emit BurnSupply(msg.sender, _value);
@@ -545,18 +548,18 @@ contract AntexToken is Context, IERC20, Ownable, ReentrancyGuard {
         return isBlackListed[_maker];
     }
 
-    function addBlackList(address _evilUser) public onlyOwner {
+    function addBlackList(address _evilUser) external onlyOwner {
         isBlackListed[_evilUser] = true;
         emit AddedBlackList(_evilUser);
     }
 
-    function removeBlackList(address _clearedUser) public onlyOwner {
+    function removeBlackList(address _clearedUser) external onlyOwner {
         isBlackListed[_clearedUser] = false;
         emit RemovedBlackList(_clearedUser);
     }
 
-    function seizeBlackFunds(address _blackListedUser) public onlyOwner {
-        require(isBlackListed[_blackListedUser], "Address is not blacklisted");
+    function seizeBlackFunds(address _blackListedUser) external onlyOwner {
+        require(isBlackListed[_blackListedUser], "ADDRESS IS NOT BLACKLISTED");
         uint256 dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
         balances[address(this)] = balances[address(this)].add(dirtyFunds);
