@@ -450,8 +450,8 @@ abstract contract Ownable is Context {
 contract AntexToken is Context, IERC20, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
-    string public constant symbol = "ANT";
-    string public constant name = "ANTEX";
+    string public constant symbol = "ANTEX";
+    string public constant name = "Antex";
     uint256 public constant decimals = 8;
 
     mapping(address => uint) public balances;
